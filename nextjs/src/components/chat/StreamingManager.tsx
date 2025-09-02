@@ -18,7 +18,7 @@ interface StreamingManagerProps {
 export interface StreamingManagerReturn {
   isLoading: boolean;
   currentAgent: string;
-  submitMessage: (message: string) => Promise<void>;
+  submitMessage: (message: string, overrideSessionId?: string) => Promise<void>;
 }
 
 /**
@@ -47,15 +47,17 @@ export function useStreamingManager({
 
   // Submit a message for streaming
   const submitMessage = useCallback(
-    async (message: string): Promise<void> => {
-      if (!message.trim() || !userId || !sessionId) {
+    async (message: string, overrideSessionId?: string): Promise<void> => {
+      const effectiveSessionId = overrideSessionId || sessionId;
+      
+      if (!message.trim() || !userId || !effectiveSessionId) {
         throw new Error("Message, userId, and sessionId are required");
       }
 
       const apiPayload = {
         message: message.trim(),
         userId,
-        sessionId,
+        sessionId: effectiveSessionId,
       };
 
       try {

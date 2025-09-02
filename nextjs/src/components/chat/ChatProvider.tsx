@@ -323,12 +323,47 @@ export function ChatProvider({
 
       try {
         // Use provided session ID or current state
-        const currentSessionId = requestSessionId || sessionId;
+        let currentSessionId = requestSessionId || sessionId;
 
+        // Auto-create session if none exists
         if (!currentSessionId) {
-          throw new Error(
-            "No session available. Please create a session first."
+          console.log(
+            "🔄 [CHAT_PROVIDER] No session available, auto-creating one..."
           );
+          
+          // Create a new session automatically and wait for it
+          toast.info("Creating a new chat session...", {
+            id: "session-create",
+          });
+          
+          // Create new session and capture the session ID directly
+          const { createSessionAction } = await import(
+            "@/lib/actions/session-actions"
+          );
+          
+          const sessionResult = await createSessionAction(currentUserId);
+          
+          if (sessionResult.success && sessionResult.sessionId) {
+            currentSessionId = sessionResult.sessionId;
+            
+            console.log(
+              `✅ [CHAT_PROVIDER] Session auto-created: ${currentSessionId}`
+            );
+            
+            // Update the session state
+            handleSessionSwitch(currentSessionId);
+            
+            toast.success("Session created!", {
+              id: "session-create",
+              description: "Sending your message now...",
+            });
+            
+            // Continue with message submission using the new session ID
+          } else {
+            throw new Error(
+              sessionResult.error || "Failed to create session"
+            );
+          }
         }
 
         // Add user message to chat immediately
@@ -341,14 +376,18 @@ export function ChatProvider({
         addMessage(userMessage);
 
         // Submit message for streaming - the backend will provide AI response
-        await streamingManager.submitMessage(query);
+        // Pass the currentSessionId explicitly to ensure it uses the newly created session
+        await streamingManager.submitMessage(query, currentSessionId);
       } catch (error) {
         console.error("Error submitting message:", error);
+        toast.error("Failed to send message", {
+          description: error instanceof Error ? error.message : "Unknown error",
+        });
         // Don't create fake error messages - let the UI handle the error state
         throw error;
       }
     },
-    [userId, sessionId, addMessage, streamingManager]
+    [userId, sessionId, addMessage, streamingManager, handleSessionSwitch]
   );
 
   // Context value
